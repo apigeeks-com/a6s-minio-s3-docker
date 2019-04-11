@@ -1,0 +1,12 @@
+node_modules/
+dist/
+
+*.log
+config/develop.yml
+
+.nyc_output/
+coverage/
+mochawesome-report/
+
+.idea/
+*.iml
