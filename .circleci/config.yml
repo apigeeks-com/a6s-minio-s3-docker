@@ -28,7 +28,7 @@ jobs:
           command: |
             mkdir docker-cache/            
             
-           if [[ -z "$CIRCLE_BUILD_NUM" ]]; then                            
+            if [[ -z "$CIRCLE_BUILD_NUM" ]]; then                            
               sudo docker build -t $DOCKER_IMAGE_NAME:latest .
               sudo docker save -o docker-cache/image.tar $DOCKER_IMAGE_NAME:latest
             else          
