@@ -16,6 +16,7 @@ Docker image to mirror MinIO bucket to AWS S3
 - `S3_REGION` - AWS S3 region where bucket is primary hosted, default value `us-east-1`
 - `S3_ACCESS_KEY_ID` - AWS S3 access key id
 - `S3_SECRET_ACCESS_KEY` - AWS S3 secret access key 
+- `S3_ROLE_ARN` - AWS IAM Role ARN, e.g. `arn:aws:iam::123456789:role` 
 - `S3_BUCKET` - AWS S3 bucket to sync files into
 - `S3_BUCKET_PREFIX` - AWS S3 bucket prefix to sync files into, should have trailing slash in the end, e.g: `minio/`, defaule value - empty string, means files will be synced into the bucket root
 - `S3_ENCRYPTION_KEY` - AWS S3 SSE encryption key

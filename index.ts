@@ -29,7 +29,9 @@ if (has('s3.accessKeyId') && has('s3.secretAccessKey')) {
   s3Options.accessKeyId = get('s3.accessKeyId');
   s3Options.secretAccessKey = get('s3.secretAccessKey');
 } else {
-  s3Options.credentials = new AWS.EC2MetadataCredentials();
+  if (has('s3.roleArn')) {
+    s3Options.credentials = new AWS.EC2MetadataCredentials();
+  }
 }
 
 const s3 = new AWS.S3(s3Options);
@@ -245,6 +247,29 @@ const processS3Objects = async (nextMarker?: string): Promise<void> => {
 };
 
 const run = async (): Promise<void> => {
+  if (has('s3.roleArn')) {
+    await new Promise<void>((res, rej) => {
+      const sts = new AWS.STS();
+      sts.assumeRole({
+        RoleArn: get('s3.roleArn'),
+        RoleSessionName: 'a6s-minio-s3-docker'
+      }, function(err, data) {
+        if (err) { 
+          console.log('Cannot assume role');
+          rej(err);
+        } else { 
+          if (data.Credentials) {
+            s3.config.update({
+              accessKeyId: data.Credentials.AccessKeyId,
+              secretAccessKey: data.Credentials.SecretAccessKey,
+              sessionToken: data.Credentials.SessionToken
+            });
+          }
+          res();
+        }
+      });
+    });    
+  }
   console.log('-> start processing...');
   await processMinioObjects();
   await processS3Objects();
