@@ -28,10 +28,6 @@ const s3Options: AWS.S3.Types.ClientConfiguration = {
 if (has('s3.accessKeyId') && has('s3.secretAccessKey')) {
   s3Options.accessKeyId = get('s3.accessKeyId');
   s3Options.secretAccessKey = get('s3.secretAccessKey');
-} else {
-  if (has('s3.roleArn')) {
-    s3Options.credentials = new AWS.EC2MetadataCredentials();
-  }
 }
 
 const s3 = new AWS.S3(s3Options);
@@ -246,13 +242,13 @@ const processS3Objects = async (nextMarker?: string): Promise<void> => {
   }
 };
 
-const run = async (): Promise<void> => {
+const s3UpdateConfig = async (): Promise<void> => {
   if (has('s3.roleArn')) {
     await new Promise<void>((res, rej) => {
       const sts = new AWS.STS();
       sts.assumeRole({
         RoleArn: get('s3.roleArn'),
-        RoleSessionName: 'a6s-minio-s3-docker'
+        RoleSessionName: 'a6s-minio-s3-docker',      
       }, function(err, data) {
         if (err) { 
           console.log('Cannot assume role');
@@ -268,9 +264,13 @@ const run = async (): Promise<void> => {
           res();
         }
       });
-    });    
+    });
   }
+}
+
+const run = async (): Promise<void> => {
   console.log('-> start processing...');
+  await s3UpdateConfig();
   await processMinioObjects();
   await processS3Objects();
   console.log('<- processing complete');
