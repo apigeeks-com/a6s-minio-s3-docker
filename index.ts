@@ -19,13 +19,20 @@ const minio = new AWS.S3({
   sslEnabled: true,
 });
 
-const s3 = new AWS.S3({
+const s3Options: AWS.S3.Types.ClientConfiguration = {
   s3ForcePathStyle: true,
   signatureVersion: 'v4',
-  accessKeyId: has('s3.accessKeyId') ? get('s3.accessKeyId') : undefined,
-  secretAccessKey: has('s3.secretAccessKey') ? get('s3.secretAccessKey') : undefined,
   region: get('s3.region'),
-});
+}
+
+if (has('s3.accessKeyId') && has('s3.secretAccessKey')) {
+  s3Options.accessKeyId = get('s3.accessKeyId');
+  s3Options.secretAccessKey = get('s3.secretAccessKey');
+} else {
+  s3Options.credentials = new AWS.EC2MetadataCredentials();
+}
+
+const s3 = new AWS.S3(s3Options);
 
 const headMinioObject = async (key: string): Promise<AWS.S3.Types.HeadObjectOutput | undefined> => {
   // console.debug(`--> loading head for key: ${key} in bucket ${get('minio.bucket')}`);
