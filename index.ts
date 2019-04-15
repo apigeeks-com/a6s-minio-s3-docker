@@ -23,6 +23,7 @@ const s3Options: AWS.S3.Types.ClientConfiguration = {
   s3ForcePathStyle: true,
   signatureVersion: 'v4',
   region: get('s3.region'),
+  logger: console,
 }
 
 if (has('s3.accessKeyId') && has('s3.secretAccessKey')) {
@@ -254,7 +255,7 @@ const s3UpdateConfig = async (): Promise<void> => {
           return rej(err);
         }
 
-        console.log(`AWS: EC2 instance credentials successfully received`);
+        console.log(`AWS: EC2 instance credentials successfully received. S3.AccessKeyID: ${s3.config.accessKeyId}`);
         res();
       });      
     });
