@@ -243,24 +243,17 @@ const processS3Objects = async (nextMarker?: string): Promise<void> => {
 };
 
 const s3UpdateConfig = async (): Promise<void> => {
-  if (has('s3.roleName')) {
+  if (!has('s3.accessKeyId') && !has('s3.secretAccessKey')) {
     await new Promise<void>((res, rej) => {
-      new AWS.MetadataService().request(`/iam/security-credentials/${get('s3.roleName')}`, (err, json: string) => {
+      console.log(`AWS: trying to get EC2 instance credentials...`);      
+      s3.config.getCredentials((err) => {
         if (err) {
+          console.log(`AWS: failed to obtain EC2 instance credentials`);      
           return rej(err);
         }
 
-        const data = JSON.parse(json);
-
-        if (data.Code !== 'Success') {
-          return rej(new Error(`AWS.MetadataService /iam/security-credentials/${get('s3.roleName')} failed. Response: ${json}`));
-        }
-
-        s3.config.update({
-          accessKeyId: data.AccessKeyId,
-          secretAccessKey: data.Credentials.SecretAccessKey,
-          sessionToken: data.Credentials.Token
-        });
+        console.log(`AWS: EC2 instance credentials successfully received`);
+        res();
       });      
     });
   }
