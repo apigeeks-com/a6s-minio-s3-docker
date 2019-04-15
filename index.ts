@@ -243,27 +243,25 @@ const processS3Objects = async (nextMarker?: string): Promise<void> => {
 };
 
 const s3UpdateConfig = async (): Promise<void> => {
-  if (has('s3.roleArn')) {
+  if (has('s3.roleName')) {
     await new Promise<void>((res, rej) => {
-      const sts = new AWS.STS();
-      sts.assumeRole({
-        RoleArn: get('s3.roleArn'),
-        RoleSessionName: 'a6s-minio-s3-docker',      
-      }, function(err, data) {
-        if (err) { 
-          console.log('Cannot assume role');
-          rej(err);
-        } else { 
-          if (data.Credentials) {
-            s3.config.update({
-              accessKeyId: data.Credentials.AccessKeyId,
-              secretAccessKey: data.Credentials.SecretAccessKey,
-              sessionToken: data.Credentials.SessionToken
-            });
-          }
-          res();
+      new AWS.MetadataService().request(`/iam/security-credentials/${get('s3.roleName')}`, (err, json: string) => {
+        if (err) {
+          return rej(err);
         }
-      });
+
+        const data = JSON.parse(json);
+
+        if (data.Code !== 'Success') {
+          return rej(new Error(`AWS.MetadataService /iam/security-credentials/${get('s3.roleName')} failed. Response: ${json}`));
+        }
+
+        s3.config.update({
+          accessKeyId: data.AccessKeyId,
+          secretAccessKey: data.Credentials.SecretAccessKey,
+          sessionToken: data.Credentials.Token
+        });
+      });      
     });
   }
 }
