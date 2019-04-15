@@ -28,6 +28,8 @@ const s3Options: AWS.S3.Types.ClientConfiguration = {
 if (has('s3.accessKeyId') && has('s3.secretAccessKey')) {
   s3Options.accessKeyId = get('s3.accessKeyId');
   s3Options.secretAccessKey = get('s3.secretAccessKey');
+} else {
+  s3Options.credentials = new AWS.EC2MetadataCredentials()
 }
 
 const s3 = new AWS.S3(s3Options);
