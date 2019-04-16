@@ -1,6 +1,6 @@
 {
   "name": "a6s-minio-s3-docker",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Docker image to mirror MinIO bucket to AWS S3",
   "main": "dist/index.js",
   "private": true,

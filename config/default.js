@@ -14,6 +14,7 @@ module.exports = {
         accessKeyId: process.env.S3_ACCESS_KEY_ID,
         secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
         roleName: process.env.S3_ROLE_NAME,
+        roleArn: process.env.S3_ROLE_ARN,
         bucket: process.env.S3_BUCKET,
         bucketPrefix: process.env.S3_BUCKET_PREFIX || '',
         sse: {

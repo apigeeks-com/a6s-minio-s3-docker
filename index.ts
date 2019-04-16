@@ -11,32 +11,45 @@ let created = 0;
 
 const minio = new AWS.S3({
   s3ForcePathStyle: true,
-  accessKeyId: get('minio.accessKeyId'),
-  secretAccessKey: get('minio.secretAccessKey'),
+  credentials: new AWS.Credentials({
+    accessKeyId: get('minio.accessKeyId'),
+    secretAccessKey: get('minio.secretAccessKey'),    
+  }),
   signatureVersion: 'v4',
   endpoint: get('minio.host'),
   region: '',
   sslEnabled: true,
+  logger: {
+    log: function() {
+      console.log('[MINIO]'.red, ...arguments);
+    }
+  }
 });
 
 const s3Options: AWS.S3.Types.ClientConfiguration = {
   s3ForcePathStyle: true,
   signatureVersion: 'v4',
   region: get('s3.region'),
-  logger: console,
+  logger: {
+    log: function() {
+      console.log('[S3]'.blue, ...arguments);
+    }
+  }
 }
 
 if (has('s3.accessKeyId') && has('s3.secretAccessKey')) {
-  s3Options.accessKeyId = get('s3.accessKeyId');
-  s3Options.secretAccessKey = get('s3.secretAccessKey');
+  s3Options.credentials = new AWS.Credentials({
+    accessKeyId: get('s3.accessKeyId'),
+    secretAccessKey: get('s3.secretAccessKey'),
+  });  
 } else {
-  s3Options.credentials = new AWS.EC2MetadataCredentials()
+  s3Options.credentials = new AWS.EC2MetadataCredentials();
 }
 
 const s3 = new AWS.S3(s3Options);
 
 const headMinioObject = async (key: string): Promise<AWS.S3.Types.HeadObjectOutput | undefined> => {
-  // console.debug(`--> loading head for key: ${key} in bucket ${get('minio.bucket')}`);
+  console.debug('[MINIO]'.red, `call headObject action for key: ${key} in bucket ${get('s3.bucket')}`);
   try {
     return await new Promise<AWS.S3.Types.HeadObjectOutput>((res, rej) => {
       minio.headObject(
@@ -61,22 +74,23 @@ const headMinioObject = async (key: string): Promise<AWS.S3.Types.HeadObjectOutp
       return;
     }
 
-    console.error(`Minio.headObject failed for key: ${key}`);
+    console.error('[MINIO]'.red, `headObject action failed for key: ${key}`);
     throw e;
   }
 };
 
 const headS3Object = async (key: string): Promise<AWS.S3.Types.HeadObjectOutput | undefined> => {
-  // console.debug(`--> loading head for key: ${get('s3.bucketPrefix') + key} in bucket ${get('s3.bucket')}`);
+  const s3Key = get('s3.bucketPrefix') + key;
+  console.debug('[S3]'.blue, `call headObject for key: ${s3Key} in bucket ${get('s3.bucket')}`);
   try {
     return await new Promise<AWS.S3.Types.HeadObjectOutput>((res, rej) => {
       s3.headObject(
         {
           Bucket: get('s3.bucket'),
-          Key: get('s3.bucketPrefix') + key,
+          Key: s3Key,
           SSECustomerAlgorithm: 'AES256',
           SSECustomerKey: get('s3.sse.key'),
-          SSECustomerKeyMD5: get('s3.sse.md5'),
+          SSECustomerKeyMD5: get('s3.sse.md5'),          
         },
         (err, data) => {
           if (err) {
@@ -90,9 +104,9 @@ const headS3Object = async (key: string): Promise<AWS.S3.Types.HeadObjectOutput 
   } catch (e) {
     if (e.statusCode && e.statusCode === 404) {
       return;
-    }
+    }   
 
-    console.error(`S3.headObject failed for key: ${key}`);
+    console.error('[S3]'.blue, `headObject failed for key: ${s3Key}`);
     throw e;
   }
 };
@@ -154,17 +168,17 @@ const copyToS3 = async (minioObject: AWS.S3.Object): Promise<void> => {
         },
         err => {
           if (err) {
-            console.log(`S3.Upload failed for key: ${minioObject.Key}`);
+            console.log('[S3]'.red, `upload failed for key: ${get('s3.bucketPrefix') + key}`);
 
             return rej(err);
           }
 
           if (!s3Object) {
             created++;
-            console.log(`-> ${'[CREATED]'.green} new S3 object for key: ${minioObject.Key}`);
+            console.log(`-> ${'[CREATED]'.green} new S3 object for key: ${get('s3.bucketPrefix') + key}`);
           } else {
             updated++;
-            console.log(`-> ${'[UPDATED]'.blue} S3 object for key: ${minioObject.Key}`);
+            console.log(`-> ${'[UPDATED]'.blue} S3 object for key: ${get('s3.bucketPrefix') + key}`);
           }
           res();
         },
@@ -186,7 +200,7 @@ const listMinioObjects = async (nextMarker?: string) => {
       },
       (err, data) => {
         if (err) {
-          console.error('Minio.listObjects failed');
+          console.error('[MINIO]'.red, 'listObjects failed');
 
           return rej(err);
         }
@@ -206,7 +220,7 @@ const listS3Objects = async (continuationToken?: string) => {
       },
       (err, data) => {
         if (err) {
-          console.error(`S3.listObjects failed. Bucket: ${get('s3.bucket')} Prefix: ${get('s3.bucketPrefix')}`);
+          console.error('[S3]'.blue, `listObjects failed. Bucket: ${get('s3.bucket')} Prefix: ${get('s3.bucketPrefix')}`);
 
           return rej(err);
         }
@@ -254,8 +268,8 @@ const s3UpdateConfig = async (): Promise<void> => {
           console.log(`AWS: failed to obtain EC2 instance credentials`);      
           return rej(err);
         }
-
-        console.log(`AWS: EC2 instance credentials successfully received. S3.AccessKeyID: ${s3.config.accessKeyId}`);
+        
+        console.log(`AWS: EC2 instance credentials successfully received. S3.AccessKeyID: ${s3.config.credentials && s3.config.credentials.accessKeyId}`);
         res();
       });      
     });
