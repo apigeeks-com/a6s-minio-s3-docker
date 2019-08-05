@@ -145,45 +145,55 @@ const copyToS3 = async (minioObject: AWS.S3.Object): Promise<void> => {
   const s3ObjectModified = (s3Object && s3Object.LastModified && s3Object.LastModified.getTime()) || 0;
   const minioObjectModified = (minioObject.LastModified && minioObject.LastModified.getTime()) || 0;
 
+  const meta = await headMinioObject(key);
+  const contentLength = (meta && meta.ContentLength) || 0;
   if (!s3Object || (s3ObjectModified < minioObjectModified && s3Object.ContentLength !== minioObject.Size)) {
-    await new Promise<void>((res, rej) => {
-      const rs = minio
-        .getObject({
-          Key: key,
-          Bucket: get('minio.bucket'),
-          SSECustomerAlgorithm: 'AES256',
-          SSECustomerKey: get('minio.sse.key'),
-          SSECustomerKeyMD5: get('minio.sse.md5'),
-        })
-        .createReadStream();
+    if (contentLength) {
+      await new Promise<void>((res, rej) => {
+        const rs = minio
+          .getObject({
+            Key: key,
+            Bucket: get('minio.bucket'),
+            SSECustomerAlgorithm: 'AES256',
+            SSECustomerKey: get('minio.sse.key'),
+            SSECustomerKeyMD5: get('minio.sse.md5'),
+          })
+          .createReadStream();
 
-      s3.upload(
-        {
-          Key: get('s3.bucketPrefix') + key,
-          Bucket: get('s3.bucket'),
-          Body: rs,
-          SSECustomerAlgorithm: 'AES256',
-          SSECustomerKey: get('s3.sse.key'),
-          SSECustomerKeyMD5: get('s3.sse.md5'),
-        },
-        err => {
-          if (err) {
-            console.log('[S3]'.red, `upload failed for key: ${get('s3.bucketPrefix') + key}`);
+        s3.upload(
+          {
+            Key: get('s3.bucketPrefix') + key,
+            Bucket: get('s3.bucket'),
+            Body: rs,
+            SSECustomerAlgorithm: 'AES256',
+            SSECustomerKey: get('s3.sse.key'),
+            SSECustomerKeyMD5: get('s3.sse.md5'),
+          },
+          err => {
+            if (err) {
+              console.log('[S3]'.red, `upload failed for key: ${get('s3.bucketPrefix') + key}`);
 
-            return rej(err);
-          }
+              return rej(err);
+            }
 
-          if (!s3Object) {
-            created++;
-            console.log(`-> ${'[CREATED]'.green} new S3 object for key: ${get('s3.bucketPrefix') + key}`);
-          } else {
-            updated++;
-            console.log(`-> ${'[UPDATED]'.blue} S3 object for key: ${get('s3.bucketPrefix') + key}`);
-          }
-          res();
-        },
-      );
-    });
+            if (!s3Object) {
+              created++;
+              console.log(`-> ${'[CREATED]'.green} new S3 object for key: ${get('s3.bucketPrefix') + key}`);
+            } else {
+              updated++;
+              console.log(`-> ${'[UPDATED]'.blue} S3 object for key: ${get('s3.bucketPrefix') + key}`);
+            }
+            res();
+          },
+        );
+      });
+    } else {
+      s3.putObject({
+        Key: get('s3.bucketPrefix') + key,
+        Bucket: get('s3.bucket'),
+        Body: ''
+      })
+    }
   } else {
     skipped++;
     console.log(`-> ${'[SKIPPED]'.gray} S3 object for key: ${minioObject.Key}`);
