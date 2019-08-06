@@ -48,18 +48,23 @@ if (has('s3.accessKeyId') && has('s3.secretAccessKey')) {
 
 const s3 = new AWS.S3(s3Options);
 
-const headMinioObject = async (key: string): Promise<AWS.S3.Types.HeadObjectOutput | undefined> => {
+const headMinioObject = async (key: string, withoutSSE = false): Promise<AWS.S3.Types.HeadObjectOutput | undefined> => {
   console.debug('[MINIO]'.red, `call headObject action for key: ${key} in bucket ${get('s3.bucket')}`);
   try {
     return await new Promise<AWS.S3.Types.HeadObjectOutput>((res, rej) => {
+      let options: AWS.S3.Types.HeadObjectRequest = {
+        Bucket: get('minio.bucket'),
+        Key: key,
+      };
+
+      if (!withoutSSE) {
+        options.SSECustomerAlgorithm = 'AES256';
+        options.SSECustomerKey = get('minio.sse.key');
+        options.SSECustomerKeyMD5 = get('minio.sse.md5');
+      }
+
       minio.headObject(
-        {
-          Bucket: get('minio.bucket'),
-          Key: key,
-          SSECustomerAlgorithm: 'AES256',
-          SSECustomerKey: get('minio.sse.key'),
-          SSECustomerKeyMD5: get('minio.sse.md5'),
-        },
+        options,
         (err, data) => {
           if (err) {
             return rej(err);
@@ -72,6 +77,10 @@ const headMinioObject = async (key: string): Promise<AWS.S3.Types.HeadObjectOutp
   } catch (e) {
     if (e.statusCode && e.statusCode === 404) {
       return;
+    }
+
+    if (!withoutSSE && e.statusCode && e.statusCode === 400) {
+      return await headMinioObject(key, true);
     }
 
     console.error('[MINIO]'.red, `headObject action failed for key: ${key}`);
