@@ -145,10 +145,8 @@ const copyToS3 = async (minioObject: AWS.S3.Object): Promise<void> => {
   const s3ObjectModified = (s3Object && s3Object.LastModified && s3Object.LastModified.getTime()) || 0;
   const minioObjectModified = (minioObject.LastModified && minioObject.LastModified.getTime()) || 0;
 
-  const meta = await headMinioObject(key);
-  const contentLength = (meta && meta.ContentLength) || 0;
   if (!s3Object || (s3ObjectModified < minioObjectModified && s3Object.ContentLength !== minioObject.Size)) {
-    if (contentLength) {
+    if (minioObject.Size) {
       await new Promise<void>((res, rej) => {
         const rs = minio
           .getObject({
@@ -188,11 +186,21 @@ const copyToS3 = async (minioObject: AWS.S3.Object): Promise<void> => {
         );
       });
     } else {
-      s3.putObject({
-        Key: get('s3.bucketPrefix') + key,
-        Bucket: get('s3.bucket'),
-        Body: ''
-      })
+      await new Promise((res, rej) => {
+        s3.upload({
+          Key: get('s3.bucketPrefix') + key,
+          Bucket: get('s3.bucket'),
+          Body: ''
+        }, (err) => {
+          if (err) {
+            console.log('[S3]'.red, `failed to create empty object for key: ${get('s3.bucketPrefix') + key}`);
+
+            return rej(err);
+          }
+          
+          res();
+        })
+      });      
     }
   } else {
     skipped++;
