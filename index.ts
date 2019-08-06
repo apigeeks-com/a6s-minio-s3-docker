@@ -79,19 +79,24 @@ const headMinioObject = async (key: string): Promise<AWS.S3.Types.HeadObjectOutp
   }
 };
 
-const headS3Object = async (key: string): Promise<AWS.S3.Types.HeadObjectOutput | undefined> => {
+const headS3Object = async (key: string, withoutSSE = false): Promise<AWS.S3.Types.HeadObjectOutput | undefined> => {
   const s3Key = get('s3.bucketPrefix') + key;
   console.debug('[S3]'.blue, `call headObject for key: ${s3Key} in bucket ${get('s3.bucket')}`);
   try {
     return await new Promise<AWS.S3.Types.HeadObjectOutput>((res, rej) => {
+      let options: AWS.S3.Types.HeadObjectRequest = {
+        Bucket: get('s3.bucket'),
+        Key: s3Key,
+      };
+
+      if (!withoutSSE) {
+        options.SSECustomerAlgorithm = 'AES256';
+        options.SSECustomerKey = get('s3.sse.key');
+        options.SSECustomerKeyMD5 = get('s3.sse.md5');
+      }
+
       s3.headObject(
-        {
-          Bucket: get('s3.bucket'),
-          Key: s3Key,
-          SSECustomerAlgorithm: 'AES256',
-          SSECustomerKey: get('s3.sse.key'),
-          SSECustomerKeyMD5: get('s3.sse.md5'),          
-        },
+        options,
         (err, data) => {
           if (err) {
             return rej(err);
@@ -105,6 +110,10 @@ const headS3Object = async (key: string): Promise<AWS.S3.Types.HeadObjectOutput 
     if (e.statusCode && e.statusCode === 404) {
       return;
     }   
+
+    if (!withoutSSE && e.statusCode && e.statusCode === 400) {
+      return await headS3Object(key, true);
+    }
 
     console.error('[S3]'.blue, `headObject failed for key: ${s3Key}`);
     throw e;
