@@ -16,4 +16,8 @@ RUN yarn build && \
 # Remove dev dependencies
 RUN yarn install --production
 
+# Use tini as a lightweight init system to wrap Node.js process
+RUN apk add --no-cache tini
+ENTRYPOINT ["tini", "--"]
+
 CMD yarn start
